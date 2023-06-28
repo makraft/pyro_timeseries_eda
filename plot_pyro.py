@@ -79,8 +79,10 @@ print("Time for importing data with pd.read_csv: {0}".format((str(time.time()-ts
 
 # %%
 
+# Filter the DataFrame based on the "status" column
+filtered_df = df_data[df_data['status'] == 1]
 # Create the scatterplot
-plt.scatter(x_coords, y_coords, c=intensities, cmap="hot")
+plt.scatter(filtered_df["x"],filtered_df["y"], c=filtered_df["intensity"], cmap="hot",s=4)
 plt.xlabel('X Coordinate')
 plt.ylabel('Y Coordinate')
 plt.title('Scatterplot')
