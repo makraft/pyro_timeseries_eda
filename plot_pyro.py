@@ -61,76 +61,14 @@ found_files=[]
 for _, file_row in selected_files.iterrows():
     found_files.append(file_row)
 # Get the file path from the DataFrame
-file_path = file_row['file path']
+file_path = found_files[0]['file path']
+
+
 
 # %%
-# Initialize empty lists to store the extracted data
+# open file as dataframe. This method is a lot faster (about 5x) than using 
+# readline() to create lists and zip those into a dataframe.
 import time
-tstart = time.time()
-times = []
-x_coords = []
-y_coords = []
-z_coords = []
-intensities= []
-laser_status=[]
-
-# Open the file and read its contents
-with open(file_path, 'r') as f:
-    lines = f.readlines()
-    # Find the line that says "DATA ascii" to identify the start of the data
-    start_index = lines.index('DATA ascii\n') + 1
-
-    # Read the subsequent lines and extract the required information
-    for line in lines[start_index:]:
-        # Split the line by spaces
-        data = line.split()
-
-        # Extract the required information from the columns
-        t =int(data[0])
-        x =int(data[1])
-        y =int(data[2])
-        z =int(data[3])
-        intensity =int(data[4])
-        status = int(data[8])
-
-        # Append the extracted data to the respective lists
-        times.append(t)
-        x_coords.append(x)
-        y_coords.append(y)
-        z_coords.append(z)
-        intensities.append(intensity)
-        laser_status.append(status)
-
-# Create a DataFrame from the data
-    df_data = pd.DataFrame(
-        list(zip(times,x_coords,y_coords,z_coords,intensities,laser_status)),
-        columns=['t','x', 'y','z','intensity','status'])
-print("Time for importing data with single array: {0}".format((str(time.time()-tstart))))
-
-
-
-# %%
-# Initialize empty lists to store the extracted data
-import time
-tstart = time.time()
-data_list = []
-# Open the file and read its contents
-with open(file_path, 'r') as f:
-    lines = f.readlines()
-    # Find the line that says "DATA ascii" to identify the start of the data
-    start_index = lines.index('DATA ascii\n') + 1
-
-    # Read the subsequent lines and extract the required information
-    for line in lines[start_index:]:
-        # Split the line by spaces
-        data = line.split()
-        data_list.append(data)
-    # Create a DataFrame from the data
-    df_data = pd.DataFrame(data_list, columns=['t','x', 'y','z','intensity','sensor1','sensor2','sensor3','status','controller'])
-print("Time for importing data with arrays: {0}".format((str(time.time()-tstart))))
-
-
-# %%
 import numpy as np
 tstart = time.time()
 cols=columns=['t','x', 'y','z','intensity','sensor1','sensor2','sensor3','status','controller']
