@@ -132,3 +132,33 @@ plt.show()
 
 # %% FFT plots
 # Generate plots of FFT data of the individual scan vectors
+
+import numpy as np
+
+# Identify the window boundaries where the mask changes from True to False and vice versa
+start_indices = mask[(mask.shift() == False) & (mask == True)].index
+end_indices = mask[(mask == True) & (mask.shift() == False)].index
+
+# Set the window size for the FFT
+window_size = 1024
+
+# Perform FFT on each window and plot the frequency spectrum
+""" for i in range(len(window_boundaries) - 1):
+    start_index = window_boundaries[i]
+    end_index = window_boundaries[i + 1]
+    
+    window_data = filtered_df['y'].values[start_index:end_index]
+    window_time = filtered_df['t'].values[start_index:end_index]
+    
+    # Apply FFT to the window data
+    fft_result = np.fft.fft(window_data)
+    frequencies = np.fft.fftfreq(len(window_data), window_time[1] - window_time[0])
+    
+    # Plot the frequency spectrum
+    plt.figure()
+    plt.plot(frequencies, np.abs(fft_result))
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Amplitude')
+    plt.title('Frequency Spectrum - Window {}'.format(i+1))
+    plt.show()
+ """
