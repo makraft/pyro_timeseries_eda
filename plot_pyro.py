@@ -48,9 +48,9 @@ df = pd.DataFrame(file_attributes, columns=["file path", "part", "iteration", "l
 import matplotlib.pyplot as plt
 
 # Define the criteria for selecting the file
-part = "7"  # Specify the desired part number
-iteration = "2"  # Specify the desired iteration of the layer experiment
-layer_thickness = "0" # Specify the desired layer thickness
+part = "3"  # Specify the desired part number
+iteration = "5"  # Specify the desired iteration of the layer experiment
+layer_thickness = "30" # Specify the desired layer thickness
 
 # Filter the DataFrame based on the criteria
 selected_files = df[(df['part'] == part) & (df['iteration'] == iteration) & (df['layer thickness'] == layer_thickness)]
@@ -100,6 +100,35 @@ plt.xlabel('X Coordinate')
 plt.ylabel('Y Coordinate')
 plt.title('Layer thickness {0} [micro_m], Part {1}, Iteration {2}'.format(layer_thickness, part, iteration))
 plt.colorbar(label='Intensity, Maximum = {0}'.format(max_intensity))
-plt.show()
+#plt.show()
+plt.close()
 
 # %%
+# Create value over time plot
+
+# Identify the indices where 'Status' switches from 0 to 1
+status_switch_indices = df_data[(df_data['status'].shift() == 0) & (df_data['status'] == 1)].index
+
+# Create a boolean mask to exclude the next 30 points after each status switch
+# Also exclude all 0 status points
+mask = pd.Series(True, index=df_data.index)
+mask[df_data['status'] == 0] = False
+for index in status_switch_indices:
+    mask[index : index + 31] = False
+
+# Apply the boolean mask to filter the data
+filtered_df = df_data[mask]
+
+plt.plot(df_data['t'] / 1e6, df_data['intensity'], label='intensity')
+plt.plot(df_data['t'] / 1e6, df_data['status']*100, 'r', label='state * 100')
+plt.plot(filtered_df['t'] / 1e6, filtered_df['intensity'], 'g', label='intensity filtered')
+plt.xlabel("Timestamp [s]")
+plt.ylabel("Intensity [mV]")
+plt.title('Intensity profile over time')
+plt.grid(axis='y')
+plt.legend()
+plt.show()
+
+
+# %% FFT plots
+# Generate plots of FFT data of the individual scan vectors
