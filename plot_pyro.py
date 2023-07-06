@@ -3,7 +3,8 @@
 import os
 
 # Define the path to your data file
-data_path = "D:\\mkraft\\layer_thickness_build_1"
+#data_path = "D:\\mkraft\\layer_thickness_build_1"
+data_path = "C:\\Users\\msskr\\Documents\\Master_Thesis\\Data\\layer_thickness_build_1"
 
 # Check if the file exists
 if os.path.isdir(data_path):
@@ -101,7 +102,7 @@ plt.ylabel('Y Coordinate')
 plt.title('Layer thickness {0} [micro_m], Part {1}, Iteration {2}'.format(layer_thickness, part, iteration))
 plt.colorbar(label='Intensity, Maximum = {0}'.format(max_intensity))
 #plt.show()
-plt.close()
+#plt.close()
 
 # %%
 # Create value over time plot
@@ -127,38 +128,153 @@ plt.ylabel("Intensity [mV]")
 plt.title('Intensity profile over time')
 plt.grid(axis='y')
 plt.legend()
-plt.show()
+#plt.show()
+#plt.close()
 
 
 # %% FFT plots
 # Generate plots of FFT data of the individual scan vectors
 
 import numpy as np
+from scipy.fft import fft, fftfreq
+import matplotlib.colors as mcolors
+
+sampling_rate=100000
 
 # Identify the window boundaries where the mask changes from True to False and vice versa
-start_indices = mask[(mask.shift() == False) & (mask == True)].index
-end_indices = mask[(mask == True) & (mask.shift() == False)].index
+start_indices = mask[(mask.shift() == False) & (mask)].index
+end_indices = mask[(mask.shift() == True) & (~mask)].index
 
-# Set the window size for the FFT
-window_size = 1024
 
-# Perform FFT on each window and plot the frequency spectrum
-""" for i in range(len(window_boundaries) - 1):
-    start_index = window_boundaries[i]
-    end_index = window_boundaries[i + 1]
-    
-    window_data = filtered_df['y'].values[start_index:end_index]
-    window_time = filtered_df['t'].values[start_index:end_index]
-    
-    # Apply FFT to the window data
-    fft_result = np.fft.fft(window_data)
-    frequencies = np.fft.fftfreq(len(window_data), window_time[1] - window_time[0])
-    
-    # Plot the frequency spectrum
-    plt.figure()
-    plt.plot(frequencies, np.abs(fft_result))
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Amplitude')
-    plt.title('Frequency Spectrum - Window {}'.format(i+1))
-    plt.show()
- """
+plt.clf()
+# Create a figure for the plots
+plt.figure()
+color_names= list(mcolors.CSS4_COLORS.keys())
+# Iterate over start and end indices
+for i, (start, end) in enumerate(zip(start_indices, end_indices)):
+    # Select data within the current interval
+    interval_data = df_data.loc[start:end, 'intensity']
+
+    # Calculate the FFT of the intensity data in the current interval
+    yf = fft(interval_data)
+    xf = fftfreq(len(interval_data),1.0/sampling_rate)
+
+    # Determine the color for this line
+    color = color_names[i % len(color_names)]
+
+    # Plot the absolute value of the FFT result, only positive side and without DC component (xf = 0)
+    plt.plot(xf[1:len(xf)//2], np.abs(yf[1:len(yf)//2]), color=color, label="vector {0}".format(i))
+
+    # Set the plot labels
+    plt.xlabel('Frequency [1/s]')
+    plt.ylabel('Magnitude')
+
+#    if i > 5:
+#        break
+# Show the plot
+plt.tight_layout()
+plt.legend()
+plt.show()
+
+
+
+# %% Mean values evolution
+# Calculate and plot the mean values for each interval
+import numpy as np
+
+# Identify the window boundaries where the mask changes from True to False and vice versa
+start_indices = mask[(mask.shift() == False) & (mask)].index
+end_indices = mask[(mask.shift() == True) & (~mask)].index
+
+# Initialize an empty list to store the mean values
+mean_values = []
+
+# Iterate over start and end indices
+for start, end in zip(start_indices, end_indices):
+    # Select data within the current interval
+    interval_data = df_data.loc[start:end, 'intensity']
+
+    # Calculate the mean value of the interval data and append to the list
+    mean_values.append(interval_data.mean())
+
+# Create a figure for the plot
+plt.figure(figsize=(12, 8))
+
+# Plot the mean values
+plt.plot(mean_values)
+
+# Set the plot labels
+plt.xlabel('Vector')
+plt.ylabel('Mean Intensity')
+
+# Show the plot
+plt.tight_layout()
+plt.show()
+
+
+# %% Plot multiple means
+# Plot evolution of mean value over multiple files
+
+import numpy as np
+# Define the criteria for selecting the files
+part = "3"  # Specify the desired part number
+iteration = "5"  # Specify the desired iteration of the layer experiment
+
+# Filter the DataFrame based on the criteria
+selected_files = df[(df['part'] == part) & (df['iteration'] == iteration)]
+
+# Group selected files by layer thickness
+grouped_files = selected_files.groupby('layer thickness')
+
+# Initialize empty lists to store mean values for each layer thickness
+mean_values_dict = {}
+
+# Iterate over each group
+for layer_thickness, group in grouped_files:
+    mean_values = []
+    # Iterate over each file in the group
+    for _, file_row in group.iterrows():
+        # Get the file path from the DataFrame
+        file_path = file_row['file path']
+
+        # Load the data into a DataFrame
+        cols = ['t', 'x', 'y', 'z', 'intensity', 'sensor1', 'sensor2', 'sensor3', 'status', 'controller']
+        df_data = pd.read_csv(file_path, delimiter=" ", skiprows=26, dtype=np.int32, names=cols)
+
+        # Create a boolean mask to exclude the next 30 points after each status switch
+        # Also exclude all 0 status points
+        mask = pd.Series(True, index=df_data.index)
+        mask[df_data['status'] == 0] = False
+        for index in status_switch_indices:
+            mask[index : index + 31] = False
+        
+        # Identify the window boundaries where the mask changes from True to False and vice versa
+        start_indices = mask[(mask.shift() == False) & (mask)].index
+        end_indices = mask[(mask.shift() == True) & (~mask)].index
+
+        # Iterate over start and end indices
+        for start, end in zip(start_indices, end_indices):
+            # Select data within the current interval
+            interval_data = df_data.loc[start:end, 'intensity']
+
+            # Calculate the mean value of the interval data and append to the list
+            mean_values.append(interval_data.mean())
+
+    # Store mean values for this layer thickness
+    mean_values_dict[layer_thickness] = mean_values
+
+# Create a figure for the plot
+plt.figure(figsize=(12, 8))
+
+# Plot the mean values
+for key, values in mean_values_dict.items():
+    plt.plot(values,label="{0}".format(key))
+
+# Set the plot labels
+plt.xlabel('Vector')
+plt.ylabel('Mean Intensity')
+
+# Show the plot
+plt.legend(title="Layer thickness [microns]")
+plt.tight_layout()
+plt.show()
