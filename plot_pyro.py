@@ -51,7 +51,7 @@ import matplotlib.pyplot as plt
 # Define the criteria for selecting the file
 part = "3"  # Specify the desired part number
 iteration = "5"  # Specify the desired iteration of the layer experiment
-layer_thickness = "30" # Specify the desired layer thickness
+layer_thickness = "20" # Specify the desired layer thickness
 
 # Filter the DataFrame based on the criteria
 selected_files = df[(df['part'] == part) & (df['iteration'] == iteration) & (df['layer thickness'] == layer_thickness)]
@@ -120,6 +120,7 @@ for index in status_switch_indices:
 # Apply the boolean mask to filter the data
 filtered_df = df_data[mask]
 
+plt.clf()
 plt.plot(df_data['t'] / 1e6, df_data['intensity'], label='intensity')
 plt.plot(df_data['t'] / 1e6, df_data['status']*100, 'r', label='state * 100')
 plt.plot(filtered_df['t'] / 1e6, filtered_df['intensity'], 'g', label='intensity filtered')
@@ -128,8 +129,8 @@ plt.ylabel("Intensity [mV]")
 plt.title('Intensity profile over time')
 plt.grid(axis='y')
 plt.legend()
-#plt.show()
-#plt.close()
+plt.show()
+plt.close()
 
 
 # %% FFT plots
