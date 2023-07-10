@@ -279,3 +279,77 @@ plt.ylabel('Mean Intensity')
 plt.legend(title="Layer thickness [microns]")
 plt.tight_layout()
 plt.show()
+
+
+# %% Plot means to compare between layers
+# Create violon and box plot for one part, one iteration with all layer thicknesses
+
+import numpy as np
+# Define the criteria for selecting the files
+part = "3"  # Specify the desired part number
+iteration = "5"  # Specify the desired iteration of the layer experiment
+
+# Filter the DataFrame based on the criteria
+selected_files = df[(df['part'] == part) & (df['iteration'] == iteration)]
+
+# Group selected files by layer thickness
+grouped_files = selected_files.groupby('layer thickness')
+
+# Initialize empty lists to store mean values for each layer thickness
+mean_values_dict = {}
+
+# Iterate over each group
+for layer_thickness, group in grouped_files:
+    mean_values = []
+    # Iterate over each file in the group
+    for _, file_row in group.iterrows():
+        # Get the file path from the DataFrame
+        file_path = file_row['file path']
+
+        # Load the data into a DataFrame
+        cols = ['t', 'x', 'y', 'z', 'intensity', 'sensor1', 'sensor2', 'sensor3', 'status', 'controller']
+        df_data = pd.read_csv(file_path, delimiter=" ", skiprows=26, dtype=np.int32, names=cols)
+
+        # Create a boolean mask to exclude the next 30 points after each status switch
+        # Also exclude all 0 status points
+        mask = pd.Series(True, index=df_data.index)
+        mask[df_data['status'] == 0] = False
+        for index in status_switch_indices:
+            mask[index : index + 31] = False
+        
+        # Identify the window boundaries where the mask changes from True to False and vice versa
+        start_indices = mask[(mask.shift() == False) & (mask)].index
+        end_indices = mask[(mask.shift() == True) & (~mask)].index
+
+        # Iterate over start and end indices
+        for start, end in zip(start_indices, end_indices):
+            # Select data within the current interval
+            interval_data = df_data.loc[start:end, 'intensity']
+
+            # Calculate the mean value of the interval data and append to the list
+            mean_values.append(interval_data.mean())
+
+    # Store mean values for this layer thickness
+    mean_values_dict[layer_thickness] = mean_values
+
+# Create a figure for the plot
+all_data=list(mean_values_dict.values())
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(9, 4))
+axs[0].violinplot(all_data,
+                  showmeans=False,
+                  showmedians=True)
+axs[0].set_title('Violin plot')
+
+# plot box plot
+axs[1].boxplot(all_data)
+axs[1].set_title('Box plot')
+
+# adding horizontal grid lines
+for ax in axs:
+    ax.yaxis.grid(True)
+    ax.set_xticks([y + 1 for y in range(len(all_data))],
+                  labels=['0', '10', '20', '30', '40', '50','60','70','80','90'])
+    ax.set_xlabel('Layer thickness [microns]')
+    ax.set_ylabel('Mean Intensity [mV]')
+
+plt.show()
