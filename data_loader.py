@@ -106,15 +106,19 @@ class CustomDataLoader(DataLoader):
     def __init__(self, dataset, sequence_length, batch_size=1, shuffle=False, num_workers=0):
         super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
         self.sequence_length = sequence_length
+        self.shuffle=shuffle
 
     def __iter__(self):
         return _CustomDataLoaderIter(self)
 
 class _CustomDataLoaderIter:
+    # Do custom iteration of the data.
+    # todo: figure out if using a sampler is better: https://pytorch.org/docs/stable/data.html#torch.utils.data.Sampler
+    # maybe also consider this thread: https://discuss.pytorch.org/t/overwriting-pytorch-dataloader-shuffle/146273
     def __init__(self, loader):
         self.loader = loader
         self.indices = torch.arange(len(loader.dataset))
-        if self.loader.shuffle:
+        if loader.shuffle:
             self.indices = self.indices[torch.randperm(len(self.indices))]
         self.idx = 0
 
@@ -136,6 +140,7 @@ class _CustomDataLoaderIter:
             return next(self)
 
 
+
 # Define the path to your data file
 data_path = "C:\\Users\\msskr\\Documents\\Master_Thesis\\Data\\layer_thickness_build_1"
 
@@ -149,7 +154,7 @@ print("Length of dataset: {0} sequences".format(len(dataset)))
 # Create dataloader
 tstart = time.time()
 sequence_length=10
-custom_dataloader=CustomDataLoader(dataset, sequence_length, batch_size=1, shuffle=True, num_workers=0)
+custom_dataloader=CustomDataLoader(dataset, sequence_length, batch_size=1, shuffle=False, num_workers=0)
 tend=time.time()
 print("Time for initializing the dataloader: {0} seconds".format(tend-tstart))
 i = 0
