@@ -3,8 +3,8 @@
 import os
 
 # Define the path to your data file
-#data_path = "D:\\mkraft\\layer_thickness_build_1"
-data_path = "C:\\Users\\msskr\\Documents\\Master_Thesis\\Data\\layer_thickness_build_1"
+data_path = "D:\\mkraft\\layer_thickness_build_1"   # AMLZ Lab PC
+#data_path = "C:\\Users\\msskr\\Documents\\Master_Thesis\\Data\\layer_thickness_build_1"    # Home PC
 
 # Check if the file exists
 if os.path.isdir(data_path):
