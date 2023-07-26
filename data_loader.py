@@ -5,6 +5,8 @@ import torch
 import os
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from torch.utils.data import Sampler
+from torch.utils.data import random_split
 import pandas as pd
 import numpy as np
 import time
@@ -102,42 +104,51 @@ class PyroTimeSeriesDataset(Dataset):
         label=self.labels[index]
         return(torch.Tensor(data), label)
 
-class CustomDataLoader(DataLoader):
-    def __init__(self, dataset, sequence_length, batch_size=1, shuffle=False, num_workers=0):
-        super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-        self.sequence_length = sequence_length
-        self.shuffle=shuffle
+
+class SequenceSampler(Sampler):
+    """
+    Custom sampler in pytorch style. Also works without inheritance.
+    """
+    def __init__(self, dataset, min_sequence_length, max_sequence_length):
+        self.dataset = dataset
+        self.min_sequence_length = min_sequence_length
+        self.max_sequence_length = max_sequence_length
+        self.indices = self.generate_indices()
+
+    def generate_indices(self):
+        # note that idx does not consider the self.dataset.indices list
+        indices = []
+        for idx, data in enumerate(self.dataset):
+            sequence_length = len(data[0])
+            num_samples = (sequence_length // self.max_sequence_length) + 1
+            for _ in range(num_samples):
+                # todo: check if proper range for randint
+                sample_length = torch.randint(self.min_sequence_length, self.max_sequence_length + 1, (1,)).item()
+                start_index = torch.randint(0, sequence_length - sample_length + 1, (1,)).item()
+                indices.append((idx, start_index, sample_length))
+        return indices
+
+    def __len__(self):
+        return len(self.indices)
 
     def __iter__(self):
-        return _CustomDataLoaderIter(self)
+        return iter(self.indices)
 
-class _CustomDataLoaderIter:
-    # Do custom iteration of the data.
-    # todo: figure out if using a sampler is better: https://pytorch.org/docs/stable/data.html#torch.utils.data.Sampler
-    # maybe also consider this thread: https://discuss.pytorch.org/t/overwriting-pytorch-dataloader-shuffle/146273
-    def __init__(self, loader):
-        self.loader = loader
-        self.indices = torch.arange(len(loader.dataset))
-        if loader.shuffle:
-            self.indices = self.indices[torch.randperm(len(self.indices))]
-        self.idx = 0
+class SampledDataset(Dataset):
+    def __init__(self, base_dataset, sampler):
+        self.base_dataset = base_dataset
+        self.sampler = sampler
 
-    def __iter__(self):
-        return self
+    def __len__(self):
+        return len(self.sampler)
 
-    def __next__(self):
-        if self.idx >= len(self.indices):
-            raise StopIteration
-        data_idx = self.indices[self.idx]
-        data, label = self.loader.dataset[data_idx]
-        if len(data) >= self.loader.sequence_length:
-            start_index = torch.randint(0, len(data) - self.loader.sequence_length + 1, (1,))
-            end_index = start_index + self.loader.sequence_length
-            self.idx += 1
-            return data[start_index:end_index], label
-        else:
-            self.idx += 1
-            return next(self)
+    def __getitem__(self, index):
+        idx, start_index, sample_length = self.sampler.indices[index]
+        data = self.base_dataset[idx][0][start_index : start_index + sample_length]
+        label = self.base_dataset[idx][1]
+        return data, label
+
+
 
 
 
@@ -152,15 +163,61 @@ tend=time.time()
 print("Time for initializing the dataset: {0} seconds".format(tend-tstart))
 print("Length of dataset: {0} sequences".format(len(dataset)))
 
+# Create a Test/Train split
+train_size = int(0.8 * len(dataset))
+test_size = len(dataset) - train_size
+train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+
+
+# Generate new dataset by sampling sequences
+tstart = time.time()
+min_sequence_length = 50
+max_sequence_length = 1000
+sampler = SequenceSampler(train_dataset, min_sequence_length, max_sequence_length)
+train_dataset_sampled = SampledDataset(train_dataset,sampler)
+tend=time.time()
+print("Time for creating the sampled dataset: {0} seconds".format(tend-tstart))
+print("Total number of samples: {0}".format(len(train_dataset_sampled)))
+
 # Create dataloader
 tstart = time.time()
-sequence_length=10
-custom_dataloader=CustomDataLoader(dataset, sequence_length, batch_size=1, shuffle=False, num_workers=0)
+train_dataloader = DataLoader(train_dataset_sampled)
 tend=time.time()
 print("Time for initializing the dataloader: {0} seconds".format(tend-tstart))
+
+# %%
+# Analyze samples
+import matplotlib.pyplot as plt
+from collections import Counter
+
+sample_lengths = []
+thicknesses = []
 i = 0
-for data, label in custom_dataloader:
-    print(data, label)
+for data, label in train_dataloader:
+    length=len(data[0])
     i+=1
-    if i>20:
-        break
+    if i<20:
+        print("Sample length: {0}, label: {1}".format(len(data[0]), label))
+    sample_lengths.append(length)
+    thicknesses.append(int(label[0]))
+
+# Plot distribution of sample lengths
+plt.hist(x=sample_lengths,bins=19, edgecolor="black")
+plt.grid(True)
+plt.title("Distribution of sample lengths")
+plt.xlabel("Sample length")
+plt.ylabel("Number of samples")
+plt.show()
+
+# Plot distribution of layer thicknesses in samples
+plt.grid(True)
+#plt.hist(x=thicknesses, edgecolor="black")
+plt.title("Distribution of sample thicknesses")
+plt.ylabel("Number of samples")
+plt.xlabel("Layer thickness")
+# Count the occurrences of each unique value in the list
+value_counts = Counter(thicknesses)
+# Extract the unique values and their corresponding counts
+values, counts = zip(*value_counts.items())
+plt.bar(values, counts, width=8, edgecolor="black")
+plt.show()
